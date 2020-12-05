@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 
+#
+# reads calendar csv creates from gam_calendar_create_csv.py and gives you the ACLS
+#
+
 import os
 import subprocess
 import re
 
-GAM = '/Users/elliot/bin/gam/gam'
+HOME = os.path.expanduser("~")
+GAM = os.path.join(HOME, 'bin/gam/gam')
+
 cal_dick = {}
-with open('/Users/elliot/Desktop/calendar_2.csv', 'r') as open_file:
+with open(sys.argv[1], 'r') as open_file:
 	for cur_line in open_file.read().splitlines():
 		name, id = cur_line.split(',')
 		cal_dick[name] = id

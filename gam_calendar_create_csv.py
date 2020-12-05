@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+#
+# Creates csv of all the calendars users has access to with their access level
+#
+
 import subprocess
 import re
 import collections
@@ -11,7 +15,8 @@ if not os.path.isdir(sys.argv[1]):
     sys.exit(1)
 
 calendar_db = collections.defaultdict(list)
-gam = '/Users/elliot/bin/gam/gam'
+home = os.path.expanduser("~")
+gam = os.path.join(home, 'bin/gam/gam')
 
 all_users_output = subprocess.Popen([gam, 'print', 'users'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 all_users_output = all_users_output.communicate()[0].split('\n')[3:]

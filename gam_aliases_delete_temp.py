@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+#
+# vendor for migration didn't clean up the "temp domains"
+# this will find aliases that contain @temp.<foo>.<foo>
+#
+#
 
 import subprocess
 import sys

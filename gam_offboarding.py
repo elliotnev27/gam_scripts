@@ -1,5 +1,22 @@
 #!/usr/bin/env python
 
+#
+# script to offboard user. Once run there email will be ready to archive. Then delete.
+#
+# 1) generate & set a pseudo random password 
+# 2) change organization unit to offboarding
+# 3) invalidate previous oath tokens & 2fa backup codes
+# 4) disable the user
+# 5) remove user from groups
+# 6) rename user to have xx- prefix
+# 7) remove alias of original email address
+#
+# TODO:
+# Add option for GYB mail backup
+# Add option to delete user entirely
+#
+
+
 import argparse
 import os
 import sys
@@ -243,3 +260,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

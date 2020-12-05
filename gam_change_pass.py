@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+#
+# hacked up version of gam_offboarding to just change the user passwords
+#
+
 import argparse
 import os
 import sys
