@@ -8,6 +8,7 @@
 import subprocess
 import sys
 import re
+import os
 
 home = os.path.expanduser("~")
 gam = os.path.join(home, 'bin/gam/gam')
