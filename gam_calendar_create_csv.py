@@ -16,7 +16,7 @@ if not os.path.isdir(sys.argv[1]):
 
 calendar_db = collections.defaultdict(list)
 home = os.path.expanduser("~")
-gam = os.path.join(home, 'bin/gam/gam')
+gam = os.path.join(home, 'gamadv-xtd3/gam')
 
 all_users_output = subprocess.Popen([gam, 'print', 'users'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 all_users_output = all_users_output.communicate()[0].split('\n')[3:]

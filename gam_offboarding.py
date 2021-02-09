@@ -36,7 +36,7 @@ PARSER.add_argument('-v', '--verbose', action='store_true', help='Make this scri
 ARGS = PARSER.parse_args()
 
 HOME = os.path.expanduser("~")
-GAM = os.path.join(HOME, 'bin/gam/gam')
+GAM = os.path.join(HOME, 'bin/gamadv-xtd3/gam')
 
 def get_user_info():
     if not os.path.exists(GAM):
@@ -81,9 +81,21 @@ def get_user_info():
 
         if re.search(r'(?i)First Name:', line):
             first_name = re.sub(r'(?i)First Name: ', '', line)
+            
+            for x in first_name:
+                if x != ' ':
+                    break
+                first_name = first_name[1:]
+            
             continue
         if re.search(r'(?i)Last Name:', line):
             last_name = re.sub(r'(?i)Last Name: ', '', line)
+
+            for x in last_name:
+                if x != ' ':
+                    break
+                last_name = last_name[1:]
+
             continue
         if re.search(r'(?i)Email Aliases:', line):
             email_aliases_trip = True
@@ -97,11 +109,11 @@ def get_user_info():
         sys.exit(1)
     
     print('''
-    First Name: {}
+   First Name: {}
     Last Name: {}
 
-    Email Aliases: {}    
-    Groups: {}
+Email Aliases: {}    
+       Groups: {}
     '''.format(first_name, last_name, email_aliases, groups))
 
     return first_name, last_name, email_aliases, groups 
@@ -152,8 +164,7 @@ def reset_tokens():
         subprocess.check_call([GAM, 'user', ARGS.email, 'update', 'backupcodes'])
     except(subprocess.CalledProcessError) as error_info:
         print(error_info)
-        print('[CRITICAL] Failed deprovision/updating backup codes.')
-        sys.exit(1)
+        print('[WARN] Failed deprovision/updating backup codes.')
 
     return True
 
@@ -246,8 +257,9 @@ def main():
     reset_tokens()
     disable_user()
     remove_user_from_groups(groups)
-    rename_user()
-    remove_aliases(email_aliases)
+    if not ARGS.email.startswith('xx-'):
+        rename_user()
+        remove_aliases(email_aliases)
 
     if not ARGS.secure:
         print('{},{},{},{}'.format(first_name, last_name, ARGS.email, new_password))
