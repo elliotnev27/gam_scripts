@@ -26,23 +26,36 @@ import string
 import time
 import subprocess
 
+HOME = os.path.expanduser("~")
+GAM = os.path.join(HOME, 'bin/gamadv-xtd3/gam')
+DEFAULT_LOG_PATH = os.path.join(HOME, 'Desktop', 'offboarding.log')
 
 PARSER = argparse.ArgumentParser(description='Renames user to have xx- suffix, changes password, terminates sessions, revokes OAUTH, and terminates current sessions.')
 PARSER.add_argument('email', help='User address that will be offboarded.')
-PARSER.add_argument('-n', '--nolog', action='store_true', help='Do not log new credentials to Desktop.')
-PARSER.add_argument('-s', '--secure', action='store_true', help='Do not output new password in shell for security reasons.')
+PARSER.add_argument('log', nargs='?', help='Log location other than default: {}'.format(DEFAULT_LOG_PATH))
+PARSER.add_argument('-n', '--safe_log', action='store_true', help='Do not log new credentials in log file')
+PARSER.add_argument('-s', '--secure', action='store_true', help='Do not output new password in shell or log.')
 PARSER.add_argument('-v', '--verbose', action='store_true', help='Make this script talk a lot.')
 
 ARGS = PARSER.parse_args()
 
-HOME = os.path.expanduser("~")
-GAM = os.path.join(HOME, 'bin/gamadv-xtd3/gam')
+if not ARGS.log:
+    ARGS.log = DEFAULT_LOG_PATH
+
+if ARGS.secure:
+    ARGS.safe_log = True
+
+
+LOG_DIR = os.path.dirname(ARGS.log)
+if not os.path.exists(LOG_DIR):
+    print('[CRITICAL] {} does not exist.'.format(LOG_DIR))
+    sys.exit(1)
 
 def get_user_info():
     if not os.path.exists(GAM):
         print('[CRITICAL] GAM does not exist!')
         return False
-    
+
     first_name = ''
     last_name = ''
     email_aliases = [ARGS.email]
@@ -57,36 +70,35 @@ def get_user_info():
         print(proc.returncode)
         print('[CRITICAL] User does not exist or issue running GAM.')
         sys.exit(1)
-    
-    for line in output.split('\n'):
-        line = line.strip('\n')
+
+    for line in filter(bool, output.splitlines()):
         if email_aliases_trip:
             if not re.search(r'(?i).+@.+\.com', line):
                 email_aliases_trip = False
                 continue
+            line = line.replace('alias:', '')
             line = line.strip(' ')
             email_aliases.append(line)
             continue
-        
+
         if groups_trip:
-            if not re.search(r'(?i)<.+@.+\.com>', line):
+            try:
+                group_name = re.findall('^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', line)[0]
+            except IndexError:
                 groups_trip = False
                 continue
-            line = re.sub(r'(?i) <.+@.+\.com>', '', line)
-            while line[0] == ' ':
-                line = line[1:]
 
             groups.append(line)
             continue
 
         if re.search(r'(?i)First Name:', line):
             first_name = re.sub(r'(?i)First Name: ', '', line)
-            
+
             for x in first_name:
                 if x != ' ':
                     break
                 first_name = first_name[1:]
-            
+
             continue
         if re.search(r'(?i)Last Name:', line):
             last_name = re.sub(r'(?i)Last Name: ', '', line)
@@ -103,32 +115,27 @@ def get_user_info():
         if re.search(r'(?i)Groups: \(\d+\)', line):
             groups_trip = True
             continue
-    
+
     if not first_name and not last_name and not email_aliases and not groups:
         print('[CRITICAL] User does not exist! (empty)')
         sys.exit(1)
-    
+
     print('''
    First Name: {}
     Last Name: {}
 
-Email Aliases: {}    
+Email Aliases: {}
        Groups: {}
     '''.format(first_name, last_name, email_aliases, groups))
 
-    return first_name, last_name, email_aliases, groups 
+    return first_name, last_name, email_aliases, groups
 
 def get_random_password():
     length = 12
-    letters = string.ascii_lowercase + string.ascii_uppercase
+    chars = '!#$%&()*+,-.0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_abcdefghijklmnopqrstuvwxyz{|}~'
     password = ''
     while len(password) < length:
-        if random.randint(0, 1):
-            password += str(random.randint(0, 9))
-            continue
-
-        password += str(random.choice(letters))
-        continue
+        password += str(random.choice(chars))
 
     return password
 
@@ -144,7 +151,7 @@ def set_new_password(new_password):
         print(error_info)
         print('[CRITICAL] Failed to change password!')
         sys.exit(1)
-    
+
     return True
 
 def change_ou():
@@ -189,17 +196,17 @@ def disable_user():
     return True
 
 def remove_user_from_groups(group_list):
+    return True
+
     if ARGS.verbose:
         print('[INFO] Removing {} from groups.'.format(ARGS.email))
-    for cur_group in group_list:
-        if ARGS.verbose:
-            print('[INFO] Remove {} from {}'.format(ARGS.email, cur_group))
-        try:
-            subprocess.check_call([GAM, 'update', 'group', cur_group, 'remove', 'member', ARGS.email])
-        except(subprocess.CalledProcessError) as error_info:
-            print(error_info)
-            print('[WARN] Could not remove {} from {}'.format(cur_group, ARGS.email))
-            continue
+
+    try:
+        subprocess.check_call([GAM, 'delete', 'groups'])
+    except(subprocess.CalledProcessError, IOError) as error_info:
+        print(error_info)
+        print('[WARN] Cannot delete {} from groups.'.format(ARGS.email))
+        sys.exit(1)
 
     return True
 
@@ -212,27 +219,29 @@ def rename_user():
         print(error_info)
         print('[CRITICAL] Cannot rename {}'.format(ARGS.email))
         sys.exit(1)
-    
+
     time.sleep(2)
     return True
 
 def remove_aliases(email_aliases):
-    for cur_alias in email_aliases:
-        if ARGS.verbose:
-            print('[INFO] Removing alias {} from {}'.format(cur_alias, ARGS.email))
+    if ARGS.verbose:
+        print('[INFO] Removing aliases for account: {}'.format(ARGS.email))
+    for cur_address in email_aliases:
         try:
-            subprocess.check_call([GAM, 'delete', 'alias', cur_alias])
+            if ARGS.verbose:
+                print('[INFO] Removing alias: {}'.format(cur_address))
+            subprocess.check_call([GAM, 'delete', 'aliases', cur_address])
         except(subprocess.CalledProcessError, IOError) as error_info:
             print(error_info)
-            print('[WARN] Could not delete alias: {}'.format(cur_alias))
+            print('[CRITICAL] Cannot delete aliases for {}'.format(ARGS.email))
+            sys.exit(1)
 
     return True
 
 def write_log(first_name, last_name, new_password):
-    offboard_log = os.path.join(HOME, 'Desktop', 'offboard.log')
-    with open(offboard_log, 'a+') as log_file:
+    with open(ARGS.log, 'a+') as log_file:
         log_file.write('\n{},{},{},{}'.format(first_name, last_name, 'xx-{}'.format(ARGS.email), new_password))
-    
+
     return True
 
 def main():
@@ -250,7 +259,7 @@ def main():
         if cont in ['n', 'no']:
             print('[INFO] Cancelled.')
             sys.exit(1)
-    
+
     new_password = get_random_password()
     set_new_password(new_password)
     change_ou()
@@ -264,13 +273,12 @@ def main():
     if not ARGS.secure:
         print('{},{},{},{}'.format(first_name, last_name, ARGS.email, new_password))
 
-    if not ARGS.nolog:
+    if not ARGS.safe_log:
         write_log(first_name, last_name, new_password)
-    
+
     print('[INFO] Offboarding done.')
     sys.exit(0)
 
 if __name__ == '__main__':
     main()
-
 
