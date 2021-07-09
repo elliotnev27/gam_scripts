@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 #
-# change permissions of all groups to match our proper permissions
+# get all the groups and their memebers to create a CSV for the address book.
+# this handles nested groups
 #
 
 import collections
@@ -11,72 +12,116 @@ import time
 import sys
 import os
 
-BLOCK_LIST = ['thursday@cuttersstudios.com']
+BLOCK_LIST = ['', '']
+BLOCK_REGEX = [r'', r'', r'']
 
 HOME = os.path.expanduser("~")
 GAM = os.path.join(HOME, 'bin/gamadv-xtd3/gam')
+MAX_DEPTH = 10
 
-print('[INFO] Getting group names... This may take awhile...')
-group_list_output = subprocess.Popen([GAM, 'print', 'groups'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-group_list_output = group_list_output.communicate()[0]
 
-group_list = []
-address_book = collections.defaultdict(list)
-for group_name in group_list_output.splitlines():
-    if group_name.startswith('xx-'):
-        continue
-    if group_name in BLOCK_LIST:
-        continue
-    try:
-        if re.findall(r'(?i)^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', group_name)[0] != group_name:
+def get_group_list():
+    print('[INFO] Getting group names... This may take awhile...')
+    group_list_output = subprocess.Popen([GAM, 'print', 'groups'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    group_list_output = group_list_output.communicate()[0]
+
+    group_list = []
+    for group_name in group_list_output.splitlines():
+        if group_name.startswith('xx-'):
             continue
-        group_list.append(group_name)
-    except IndexError:
-        continue
+        if group_name in BLOCK_LIST:
+            continue
+        
+        regex_blocked = False
+        for cur_regex in BLOCK_REGEX:
+            if re.search(r'{}'.format(cur_regex), group_name):
+                regex_blocked = True
+                break
+        
+        if regex_blocked:
+            continue
 
-for group_name in group_list:
+        try:
+            if re.findall(r'(?i)^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', group_name)[0] != group_name:
+                continue
+            group_list.append(group_name)
+        except IndexError:
+            continue
+    
+    return group_list
+
+def get_group_members(group_name, depth):
+    depth += 1
+    if depth >= MAX_DEPTH:
+        yield None
     print('[INFO] Getting group info for: {}'.format(group_name))
     group_output = subprocess.Popen([GAM, 'info', 'group', group_name], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     group_output = group_output.communicate()[0]
 
     for group_line in group_output.splitlines():
-        if re.search(r'(?i)^\s+name:\s+fwd:', group_line):
-            #print('[DEBUG] skip')
-            continue
-        if not re.search(r'(?i)^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', group_line):
+        group_line = group_line.lstrip()
+        group_line = group_line.rstrip()
+
+        try:
+            email_address = re.findall(r'(?i)[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', group_line)[0]
+        except(IndexError):
+            #print('[DEBUG] Skipping because line does not contain an email address.')
             continue
 
-        group_line = re.sub(r'(?i)^\s+member:\s+', '', group_line)
-        group_line = re.sub(r'(?i)\s+\(group\)$', '', inner_group)
-        if group_line in BLOCK_LIST:
+        if email_address in BLOCK_LIST:
+            #print('[DEBUG] Skipped due to blocklist.')
             continue
-        if group_line.startswith('xx-'):
+        if email_address.startswith('xx-'):
+            #print('[DEBUG] Skipping due to starting with xx-')
             continue
 
-        address_book[group_name].append(group_line)
+        if re.search(r'(?i)Group:', group_line):
+            continue
 
-#
-# search collection for group addresses
-#
-for group_name, email_addresses in address_book:
-    print('[INFO] Checking for nested groups in {}'.format(group_name))
-    for cur_email in email_addresses:
-        if cur_email in BLOCK_LIST:
+        if re.search(r'(?i)name:\s+fwd:', group_line):
+            #print('[DEBUG] Skipping due to mail forward.')
+            break
+
+        if re.search(r'(?i)@temp\.', group_line):
+            #print('[DEBUG] Skipping due to temp address.')
+            break
+
+        if re.search(r'(?i)@archive\.', group_line):
+            #print('[DEBUG] Skipping due to archive address.')
+            break
+
+        if re.search(r'(?i) \(group\)', group_line):
+            #print('[DEBUG] {}, {}'.format(email_address, depth))
+            for cur_email in get_group_members(email_address, depth):
+                yield cur_email
             continue
-        if cur_email not in group_list:
+
+        #print('[DEBUG] {}, {}'.format(email_address, depth))
+        yield email_address
+
+def write_csv(address_book):
+    for key, vals in address_book.items():
+        csv_file_path = os.path.join('/Users/elliot/Desktop/csv/{}.csv'.format(key))
+        if not vals:
             continue
-        email_addresses.remove(cur_email)
-        for new_address in address_book[cur_email]:
-            if new_address in BLOCK_LIST:
+        with open(csv_file_path, 'w') as csv_file:
+            for cur_val in vals:
+                csv_file.write('{}\n'.format(cur_val))
+
+def main():
+    address_book = collections.defaultdict(list)
+
+    for group_name in get_group_list():
+        depth = 0
+        for group_member in get_group_members(group_name, depth):
+            if not group_member:
                 continue
-            if new_address.startswith('xx-'):
-                continue
-            if new_address in address_book[cur_email]:
-                continue
-            email_addresses.append(new_address)
+            if group_member not in address_book[group_name]:
+                address_book[group_name].append(group_member)
+    
+    write_csv(address_book)
 
-        address_book[group_name] = email_addresses
+if __name__ == '__main__':
+    main()
 
-print(address_book)
 sys.exit(0)
-
