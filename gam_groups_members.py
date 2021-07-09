@@ -78,18 +78,6 @@ def get_group_members(group_name, depth):
         if re.search(r'(?i)Group:', group_line):
             continue
 
-        if re.search(r'(?i)name:\s+fwd:', group_line):
-            #print('[DEBUG] Skipping due to mail forward.')
-            break
-
-        if re.search(r'(?i)@temp\.', group_line):
-            #print('[DEBUG] Skipping due to temp address.')
-            break
-
-        if re.search(r'(?i)@archive\.', group_line):
-            #print('[DEBUG] Skipping due to archive address.')
-            break
-
         if re.search(r'(?i) \(group\)', group_line):
             #print('[DEBUG] {}, {}'.format(email_address, depth))
             for cur_email in get_group_members(email_address, depth):
@@ -101,7 +89,7 @@ def get_group_members(group_name, depth):
 
 def write_csv(address_book):
     for key, vals in address_book.items():
-        csv_file_path = os.path.join('/Users/elliot/Desktop/csv/{}.csv'.format(key))
+        csv_file_path = os.path.join(HOME, '{}.csv'.format(key))
         if not vals:
             continue
         with open(csv_file_path, 'w') as csv_file:
@@ -125,3 +113,4 @@ if __name__ == '__main__':
     main()
 
 sys.exit(0)
+
