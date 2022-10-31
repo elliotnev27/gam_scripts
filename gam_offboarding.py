@@ -127,15 +127,16 @@ Email Aliases: {email_aliases}
     return first_name, last_name, email_aliases, groups
 
 def get_random_password():
-    length = 12
-    chars = '!#$%&()*+,-.0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_abcdefghijklmnopqrstuvwxyz{|}~'
+    length = 16
+    chars = '=,!#$%&()*+-.0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_abcdefghijklmnopqrstuvwxyz{|}~'
     password = ''
     while len(password) < length:
-        new_char = str(random.choice(chars))
-        while new_char == '=':
+        if len(password) != 0:
             new_char = str(random.choice(chars))
+        else:
+            new_char = str(random.choice(chars[2:]))
 
-        password += str(random.choice(chars))
+        password += new_char
 
     return password
 
