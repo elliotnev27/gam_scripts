@@ -251,7 +251,7 @@ def write_log(first_name, last_name, new_password, email_address):
     line = f'{first_name},{last_name},{email_address},{new_password}'
 
     with open(ARGS.log, 'a+', encoding='utf-8') as log_file:
-        log_file.write(f'{line}')
+        log_file.write(f'{line}\n')
 
     return True
 
