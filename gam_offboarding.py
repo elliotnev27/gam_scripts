@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 
-#
-# script to offboard user. Once run there email will be ready to archive. Then delete.
-#
-# 1) generate & set a pseudo random password 
-# 2) change organization unit to offboarding
-# 3) invalidate previous oath tokens & 2fa backup codes
-# 4) disable the user
-# 5) remove user from groups
-# 6) rename user to have xx- prefix
-# 7) remove alias of original email address
-#
-# TODO:
-# Add option for GYB mail backup
-# Add option to delete user entirely
-#
+'''
+script to offboard user. Once run there email will be ready to archive.
 
+ 1) generate & set a pseudo random password
+ 2) change organization unit to offboarding
+ 3) invalidate previous oath tokens & 2fa backup codes
+ 4) disable the user
+ 5) remove user from groups
+ 6) rename user to have xx- prefix
+ 7) remove alias of original email address (fails silently usually)
+'''
 
 import argparse
 import os
@@ -27,11 +22,11 @@ import subprocess
 
 HOME = os.path.expanduser("~")
 GAM = os.path.join(HOME, 'bin/gamadv-xtd3/gam')
-DEFAULT_LOG_PATH = os.path.join(HOME, 'Desktop', 'offboarding.log')
+DEFAULT_LOG_PATH = os.path.join('/var/log/offboarding.log')
 
 PARSER = argparse.ArgumentParser(description='Renames user to have xx- suffix, changes password, terminates sessions, revokes OAUTH, and terminates current sessions.')
 PARSER.add_argument('email', help='User address that will be offboarded.')
-PARSER.add_argument('log', nargs='?', help='Log location other than default: {}'.format(DEFAULT_LOG_PATH))
+PARSER.add_argument('log', nargs='?', help=f'Log location other than default: {DEFAULT_LOG_PATH}')
 PARSER.add_argument('--nr', action='store_true', help='Do not rename user with xx- suffix')
 PARSER.add_argument('-n', '--safe_log', action='store_true', help='Do not log new credentials in log file')
 PARSER.add_argument('-s', '--secure', action='store_true', help='Do not output new password in shell or log.')
@@ -48,7 +43,7 @@ if ARGS.secure:
 
 LOG_DIR = os.path.dirname(ARGS.log)
 if not os.path.exists(LOG_DIR):
-    print('[CRITICAL] {} does not exist.'.format(LOG_DIR))
+    print(f'[CRITICAL] {LOG_DIR} does not exist.')
     sys.exit(1)
 
 def get_user_info():
@@ -94,8 +89,8 @@ def get_user_info():
         if re.search(r'(?i)First Name:', line):
             first_name = re.sub(r'(?i)First Name: ', '', line)
 
-            for x in first_name:
-                if x != ' ':
+            for char in first_name:
+                if char != ' ':
                     break
                 first_name = first_name[1:]
 
@@ -103,8 +98,8 @@ def get_user_info():
         if re.search(r'(?i)Last Name:', line):
             last_name = re.sub(r'(?i)Last Name: ', '', line)
 
-            for x in last_name:
-                if x != ' ':
+            for char in last_name:
+                if char != ' ':
                     break
                 last_name = last_name[1:]
 
@@ -121,13 +116,13 @@ def get_user_info():
         print('[CRITICAL] User does not exist! (empty)')
         sys.exit(1)
 
-    print('''
-   First Name: {}
-    Last Name: {}
+    print(f'''
+   First Name: {first_name}
+    Last Name: {last_name}
 
-Email Aliases: {}
-       Groups: {}
-    '''.format(first_name, last_name, email_aliases, groups))
+Email Aliases: {email_aliases}
+       Groups: {groups}
+    ''')
 
     return first_name, last_name, email_aliases, groups
 
@@ -139,14 +134,14 @@ def get_random_password():
         new_char = str(random.choice(chars))
         while new_char == '=':
             new_char = str(random.choice(chars))
-        
+
         password += str(random.choice(chars))
 
     return password
 
 def set_new_password(new_password):
     if ARGS.verbose:
-        print('[INFO] Changing password of {} to {}'.format(ARGS.email, new_password))
+        print(f'[INFO] Changing password of {ARGS.email} to {new_password}')
     try:
         subprocess.check_call([GAM, 'update', 'user', ARGS.email, 'password', new_password])
         subprocess.check_call([GAM, 'update', 'user', ARGS.email, 'changepassword', 'on'])
@@ -161,16 +156,16 @@ def set_new_password(new_password):
 
 def change_ou():
     if ARGS.verbose:
-        print('[INFO] Changing OU of {} to offboarding.'.format(ARGS.email))
+        print(f'[INFO] Changing OU of {ARGS.email} to offboarding.')
     try:
         subprocess.check_call([GAM, 'update', 'org', 'offboarding', 'add', 'users', ARGS.email])
     except(subprocess.CalledProcessError, IOError) as error_info:
         print(error_info)
-        print('[WARN] Cannot change OU of {}'.format(ARGS.email))
+        print(f'[WARN] Cannot change OU of {ARGS.email}')
 
 def reset_tokens():
     if ARGS.verbose:
-        print('[INFO] Resetting tokens for {}'.format(ARGS.email))
+        print(f'[INFO] Resetting tokens for {ARGS.email}')
     try:
         subprocess.check_call([GAM, 'user', ARGS.email, 'deprovision'])
         subprocess.check_call([GAM, 'user', ARGS.email, 'delete', 'backupcodes'])
@@ -184,16 +179,16 @@ def reset_tokens():
 def disable_user():
     try:
         if ARGS.verbose:
-            print('[INFO] Disabled email forwarding for {}'.format(ARGS.email))
+            print(f'[INFO] Disabled email forwarding for {ARGS.email}')
         subprocess.check_call([GAM, 'user', ARGS.email, 'forward', 'off'])
         if ARGS.verbose:
-            print('[INFO] Disabled imap for {}'.format(ARGS.email))
+            print(f'[INFO] Disabled IMAP for {ARGS.email}')
         subprocess.check_call([GAM, 'user', ARGS.email, 'imap', 'off'])
         if ARGS.verbose:
-            print('[INFO] Disabled pop for {}'.format(ARGS.email))
+            print(f'[INFO] Disabled POP for {ARGS.email}')
         subprocess.check_call([GAM, 'user', ARGS.email, 'pop', 'off'])
         if ARGS.verbose:
-            print('[INFO] Disabled gal for {}'.format(ARGS.email))
+            print(f'[INFO] Disabled gal for {ARGS.email}')
         subprocess.check_call([GAM, 'update', 'user', ARGS.email, 'gal', 'off'])
     except(subprocess.CalledProcessError) as error_info:
         print(error_info)
@@ -203,14 +198,14 @@ def disable_user():
 
 def remove_user_from_groups(group_list):
     if ARGS.verbose:
-        print('[INFO] Removing {} from groups.'.format(ARGS.email))
+        print(f'[INFO] Removing {ARGS.email} from groups.')
 
     for cur_group in group_list:
         try:
             subprocess.check_call([GAM, 'update', 'group', cur_group, 'remove', ARGS.email])
         except(subprocess.CalledProcessError, IOError) as error_info:
             print(error_info)
-            print('[WARN] Cannot delete {} from groups.'.format(ARGS.email))
+            print(f'[WARN] Cannot delete {ARGS.email} from groups.')
             sys.exit(1)
 
     return True
@@ -227,34 +222,35 @@ def rename_user():
         subprocess.check_call([GAM, 'update', 'user', ARGS.email, 'username', new_email])
     except(subprocess.CalledProcessError, IOError) as error_info:
         print(error_info)
-        print('[CRITICAL] Cannot rename {}'.format(ARGS.email))
+        print(f'[CRITICAL] Cannot rename {ARGS.email}')
         sys.exit(1)
 
     time.sleep(2)
-    return new_email 
+    return new_email
 
 def remove_aliases(email_aliases):
     if ARGS.verbose:
-        print('[INFO] Removing aliases for account: {}'.format(ARGS.email))
+        print(f'[INFO] Removing aliases for account: {ARGS.email}')
     for cur_address in email_aliases:
         try:
             if ARGS.verbose:
-                print('[INFO] Removing alias: {}'.format(cur_address))
+                print(f'[INFO] Removing alias: {cur_address}')
             subprocess.check_call([GAM, 'delete', 'aliases', cur_address])
         except(subprocess.CalledProcessError, IOError) as error_info:
+            if ARGS.email == cur_address:
+                continue
             print(error_info)
-            print('[WARN] Cannot delete aliases for {}'.format(cur_address))
-            pass
+            print(f'[WARN] Cannot delete aliases for {cur_address}')
 
     return True
 
 def write_log(first_name, last_name, new_password, email_address):
     if ARGS.safe_log:
-        line = f'{first_name},{last_name},{email_address},XXXX'
-    else:
-        line = f'{first_name},{last_name},{email_address},{new_password}'
+        new_password = '****'
 
-    with open(ARGS.log, 'a+') as log_file:
+    line = f'{first_name},{last_name},{email_address},{new_password}'
+
+    with open(ARGS.log, 'a+', encoding='utf-8') as log_file:
         log_file.write(f'{line}')
 
     return True
@@ -265,14 +261,11 @@ def main():
     while True:
         try:
             cont = str.lower(input('Do you want to continue offboarding (Y/N): '))
-        except(TypeError):
+        except(TypeError, ValueError):
             pass
-        except(KeyboardInterrupt):
+        except KeyboardInterrupt:
             print('[INFO] User aborted.')
             sys.exit(0)
-        
-        if not cont:
-            pass
 
         if cont in ['y', 'yes']:
             break
@@ -292,11 +285,11 @@ def main():
         email_aliases.append(ARGS.email)
     else:
         new_email = ARGS.email
-     
+
     remove_aliases(email_aliases)
 
     if not ARGS.secure:
-        print('{},{},{},{}'.format(first_name, last_name, new_email, new_password))
+        print(f'{first_name},{last_name},{new_email},{new_password}')
 
     write_log(first_name, last_name, new_password, new_email)
 
@@ -305,4 +298,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
