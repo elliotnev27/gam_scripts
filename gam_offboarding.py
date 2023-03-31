@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-'''
+"""
 script to offboard user. Once run there email will be ready to archive.
 
  1) generate & set a pseudo random password
@@ -10,7 +10,7 @@ script to offboard user. Once run there email will be ready to archive.
  5) remove user from groups
  6) rename user to have xx- prefix
  7) remove alias of original email address (fails silently usually)
-'''
+"""
 
 import argparse
 import os
@@ -24,12 +24,14 @@ HOME = os.path.expanduser("~")
 GAM = os.path.join(HOME, 'bin/gamadv-xtd3/gam')
 DEFAULT_LOG_PATH = os.path.join('/var/log/offboarding.log')
 
-PARSER = argparse.ArgumentParser(description='Renames user to have xx- suffix, changes password, terminates sessions, revokes OAUTH, and terminates current sessions.')
+PARSER = argparse.ArgumentParser(description='Follows offboarding procedure for Google Workplace')
 PARSER.add_argument('email', help='User address that will be offboarded.')
 PARSER.add_argument('log', nargs='?', help=f'Log location other than default: {DEFAULT_LOG_PATH}')
 PARSER.add_argument('--nr', action='store_true', help='Do not rename user with xx- suffix')
-PARSER.add_argument('-n', '--safe_log', action='store_true', help='Do not log new credentials in log file')
-PARSER.add_argument('-s', '--secure', action='store_true', help='Do not output new password in shell or log.')
+PARSER.add_argument('-n', '--safe_log', action='store_true',
+                    help='Do not log new credentials in log file')
+PARSER.add_argument('-s', '--secure', action='store_true',
+                    help='Do not output new password in shell or log.')
 PARSER.add_argument('-y', '--yes', action='store_true', help='Do not prompt for confirmation.')
 PARSER.add_argument('-v', '--verbose', action='store_true', help='Make this script talk a lot.')
 
@@ -47,7 +49,13 @@ if not os.path.exists(LOG_DIR):
     print(f'[CRITICAL] {LOG_DIR} does not exist.')
     sys.exit(1)
 
-def get_user_info():
+def get_user_info() -> tuple:
+    """
+    Get user's name, aliases, groups
+
+    Returns:
+        firstname: str, lastname: str, aliases: list, groups: list
+    """
     if not os.path.exists(GAM):
         print('[CRITICAL] GAM does not exist!')
         return False
@@ -59,7 +67,8 @@ def get_user_info():
 
     email_aliases_trip = False
     groups_trip = False
-    proc = subprocess.Popen([GAM, 'info', 'user', ARGS.email], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    proc = subprocess.Popen([GAM, 'info', 'user', ARGS.email],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     output = proc.communicate()[0].decode("utf-8")
     if proc.returncode != 0:
@@ -127,7 +136,10 @@ Email Aliases: {email_aliases}
 
     return first_name, last_name, email_aliases, groups
 
-def get_random_password():
+def get_random_password() -> str:
+    """
+    Makes a random enough password
+    """
     length = 16
     chars = '=,!#$%&()*+-.0123456789:;<>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_abcdefghijklmnopqrstuvwxyz{|}~'
     password = ''
@@ -141,7 +153,14 @@ def get_random_password():
 
     return password
 
-def set_new_password(new_password):
+def set_new_password(new_password: str) -> bool:
+    """
+    args:
+        new_password (str): password you want to set for the user
+
+    returns:
+        bool: True if successful
+    """
     if ARGS.verbose:
         print(f'[INFO] Changing password of {ARGS.email} to {new_password}')
     try:
@@ -156,7 +175,14 @@ def set_new_password(new_password):
 
     return True
 
-def change_ou():
+def change_ou() -> bool:
+    """
+    Change organizational Unit to cuttersstudios/offboarding
+
+    Returns:
+        bool: true if successful
+    """
+
     if ARGS.verbose:
         print(f'[INFO] Changing OU of {ARGS.email} to offboarding.')
     try:
@@ -165,7 +191,12 @@ def change_ou():
         print(error_info)
         print(f'[WARN] Cannot change OU of {ARGS.email}')
 
-def reset_tokens():
+    return True
+
+def reset_tokens() -> True:
+    """
+    Removes 2FA backup codes and removes OAUTH tokens
+    """
     if ARGS.verbose:
         print(f'[INFO] Resetting tokens for {ARGS.email}')
     try:
@@ -178,7 +209,13 @@ def reset_tokens():
 
     return True
 
-def disable_user():
+def disable_user() -> bool:
+    """
+    Removes email forwarding, IMAP, POP, Global Address List
+
+    Returns:
+        Bool: True if successful
+    """
     try:
         if ARGS.verbose:
             print(f'[INFO] Disabled email forwarding for {ARGS.email}')
@@ -198,7 +235,14 @@ def disable_user():
 
     return True
 
-def remove_user_from_groups(group_list):
+def remove_user_from_groups(group_list:list) -> bool:
+    """
+    Args:
+        group_list (str): list of groups you want the user removed from
+
+    Returns
+        bool: True if successful
+    """
     if ARGS.verbose:
         print(f'[INFO] Removing {ARGS.email} from groups.')
 
@@ -212,7 +256,13 @@ def remove_user_from_groups(group_list):
 
     return True
 
-def rename_user():
+def rename_user() -> str:
+    """
+    Renames the user to start with xx-
+
+    Returns:
+        str: New username with xx- suffix
+    """
     if str.lower(ARGS.email).startswith('xx-'):
         return ARGS.email
 
@@ -230,7 +280,13 @@ def rename_user():
     time.sleep(2)
     return new_email
 
-def remove_aliases(email_aliases):
+def remove_aliases(email_aliases: list) -> bool:
+    """
+    Remove email aliases from account
+
+    Returns:
+        bool: True if successful
+    """
     if ARGS.verbose:
         print(f'[INFO] Removing aliases for account: {ARGS.email}')
     for cur_address in email_aliases:
@@ -246,7 +302,20 @@ def remove_aliases(email_aliases):
 
     return True
 
-def write_log(first_name, last_name, new_password, email_address):
+def write_log(first_name: str, last_name: str, new_password: str, email_address: str) -> bool:
+    """
+    Write actions to log
+
+    Args:
+        first_name (str): User's first name
+        last_name (str): user's last name
+        new_password (str): password to account
+        email_address: email address of user
+
+    Returns:
+        Bool: True if succesful
+
+    """
     if ARGS.safe_log:
         new_password = '****'
 
@@ -258,6 +327,10 @@ def write_log(first_name, last_name, new_password, email_address):
     return True
 
 def main():
+    """
+    This is the alpha and omega
+    """
+
     print('[INFO] Starting offboarding process...')
     first_name, last_name, email_aliases, groups = get_user_info()
     while True:
