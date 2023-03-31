@@ -30,6 +30,7 @@ PARSER.add_argument('log', nargs='?', help=f'Log location other than default: {D
 PARSER.add_argument('--nr', action='store_true', help='Do not rename user with xx- suffix')
 PARSER.add_argument('-n', '--safe_log', action='store_true', help='Do not log new credentials in log file')
 PARSER.add_argument('-s', '--secure', action='store_true', help='Do not output new password in shell or log.')
+PARSER.add_argument('-y', '--yes', action='store_true', help='Do not prompt for confirmation.')
 PARSER.add_argument('-v', '--verbose', action='store_true', help='Make this script talk a lot.')
 
 ARGS = PARSER.parse_args()
@@ -260,6 +261,8 @@ def main():
     print('[INFO] Starting offboarding process...')
     first_name, last_name, email_aliases, groups = get_user_info()
     while True:
+        if ARGS.yes:
+            break
         try:
             cont = str.lower(input('Do you want to continue offboarding (Y/N): '))
         except(TypeError, ValueError):
