@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('last_name', type=str, help='Employee\'s last name')
     parser.add_argument('personal_email', type=str, help='Email that credentials will be sent to.')
     parser.add_argument('city', type=str, choices=['chi', 'det', 'kc', 'la', 'ny', 'tky', 'none'], help='Location of employee')
-    parser.add_argument('department', type=str, chocies=['ac', 'cs', 'cutters', 'dictionary', 'flavor', 'none'], help='Department of employee')
+    parser.add_argument('department', type=str, choices=['foo', 'foo1'], help='Department of employee')
     parser.add_argument('title', type=str, help='Offical postion/title of person')
     parser.add_argument('group', type=str, choices=['producer', 'editor', 'assistant', 'graphics', 'flame'], help='')
     parser.add_argument('type', type=str, choices=['freelance', 'staff'], help='Employee status is freelance or staff')
@@ -57,18 +57,12 @@ def define_work_email_address(args):
         if new_val_cont(args.last_name, new_last_name):
             args.last_name = new_last_name
 
-    if args.department == 'ac':
-        company = 'anothercountry.net'
-    elif args.department == 'cs':
-        company = 'cuttersstudios.com'
-    elif args.department == 'cutters':
-        company = 'cutters.com'
-    elif args.department == 'dictionary':
-        company = 'dictionaryfilms.com'
-    elif args.department == 'flavor.tv':
-        company = 'flavor.tv'
+    if args.department == 'foo':
+        company = 'foo.com'
+    elif args.department == 'foo1':
+        company = 'foo1.com'
     else:
-        company = 'cuttersstudios.com'
+        company = 'foo.net'
     
     work_email = f'{args.first_name}.{args.last_name}@{company}'
 
@@ -130,7 +124,7 @@ def set_groups(args, work_email):
         print(f'[ERROR] Cannot add {work_email} to {group_email}')
 
     if args.type == 'staff':
-        group_email = f'{city}.staff@cuttersstudios.com'
+        group_email = f'{city}.staff@foo.net'
         try:
             subprocess.check_call([GAM, 'update', 'group', group_email])
         except(subprocess.CalledProcessError, IOError) as error_info:
