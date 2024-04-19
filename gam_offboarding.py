@@ -177,7 +177,7 @@ def set_new_password(new_password: str) -> bool:
 
 def change_ou() -> bool:
     """
-    Change organizational Unit to cuttersstudios/offboarding
+    Change organizational Unit to root/offboarding
 
     Returns:
         bool: true if successful
